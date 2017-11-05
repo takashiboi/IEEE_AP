@@ -1,3 +1,4 @@
+
 #include <SPI.h>
 #include <RF24.h>
 
@@ -8,6 +9,10 @@
 #define YELLOW_LED 4
 
 RF24 radio(CE, CS);
+
+int rounds = 1;
+int* lightSequence = (int*) malloc( sizeof( int ) );
+int buf;
 
 bool button_pushed(int buttonPin) {
   // if pressed
@@ -21,29 +26,28 @@ bool button_pushed(int buttonPin) {
   return false;
 }
 
+// wait to detect button press
 int check_button_pushed() {
-  if (button_pushed(RED_LED))
-    return 1;
-  else if (button_pushed(GREEN_LED))
-    return 2;
-  else if (button_pushed(YELLOW_LED))
-    return 3;
-  return 0;
+  while (true) {
+    if (button_pushed(RED_LED))
+      return 1;
+    else if (button_pushed(GREEN_LED))
+      return 2;
+    else if (button_pushed(YELLOW_LED))
+      return 3;
+  }
 }
-int userInput(int *sequence) {
-  for (int i = 0; i < sizeof(sequence)/sizeof(int); i++) {
-    Serial.println("Press button " + String(sequence[i]));
-    while (true) {
-      //  if red pressed: 1, green: 2, yellow: 3
-      int button_pushed = check_button_pushed();
 
-      if (button_pushed != 0) {
-        if (button_pushed == sequence[i])
-          break;
-        else
-          return 2;
-      }
-    }
+int userInput(int *sequence) {
+  for (int i = 0; i < rounds; i++) {   
+    Serial.println("Press button " + String(sequence[i]));
+    //  if red pressed: 1, green: 2, yellow: 3
+    int button_pushed = check_button_pushed();
+
+    if (button_pushed == sequence[i])
+      continue;
+    else
+      return 2;
   }
   return 1;
 }
@@ -67,40 +71,48 @@ void setup() {
   pinMode(YELLOW_LED, INPUT);
 
   Serial.begin(9600);
+  Serial.println("Serial Ready");
 }
 
-int rounds = 1;
-int* lightSequence = (int*) malloc( sizeof( int ) );
-int buf;
-bool roundStarted;
 void loop() {
+//  Serial.println("Round " + String(rounds));
   radio.startListening();
-  lightSequence = (int*) malloc( sizeof( int )*rounds );
-  if( radio.available() )
+  lightSequence = (int*) realloc(lightSequence, sizeof( int )*rounds );
+  if( radio.available() && rounds < 6)
   {
      // TEST: sending over a character, one byte at a time
      radio.read((void*)&buf, sizeof(int));
 
-     Serial.print( "Received: " );
+     Serial.print( "buf: " );
      Serial.println( buf );
 
+      // TEST: randomly generate sequence
+//      for (int i = 0; i < rounds; i++) {
+//        long longRandNum = random(1, 4);
+//        Serial.println(longRandNum);
+//        int randNum = (int) longRandNum;
+//        Serial.println(randNum);
+//        lightSequence[i] = randNum;
+//      }
+      
      if (buf == 1 || buf == 2 || buf == 3) {
         lightSequence[rounds-1] = buf;
         radio.stopListening();
         int result = userInput(lightSequence);
         if (result == 1) {
-          Serial.println("ROUND SUCCESSFUL"); 
+          Serial.println("ROUND " + String(rounds) + "SUCCESSFUL"); 
+          
           rounds++;
         } else {
           Serial.println("ROUND FAILED");
+          free(lightSequence);
+          delay(1000000);
         }
         
         radio.write((void*) &result, sizeof(int), 1);
         Serial.write("wrote result");
      }
-     
      // stop listening after bytes are received
      radio.stopListening();
   }
-  free(lightSequence);
 }
