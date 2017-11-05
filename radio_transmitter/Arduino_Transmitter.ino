@@ -83,8 +83,9 @@ void loop() {
      // TEST: sending over a character, one byte at a time
      radio.read((void*)&buf, sizeof(int));
 
-     Serial.print( "buf: " );
-     Serial.println( buf );
+      delay(10);
+//     Serial.print( "buf: " );
+//     Serial.println( buf );
 
       // TEST: randomly generate sequence
 //      for (int i = 0; i < rounds; i++) {
@@ -106,7 +107,6 @@ void loop() {
         } else {
           Serial.println("ROUND FAILED");
           free(lightSequence);
-          delay(1000000);
         }
         
         radio.write((void*) &result, sizeof(int), 1);
